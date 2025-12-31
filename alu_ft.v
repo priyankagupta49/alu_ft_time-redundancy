@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps 
+`timescale 1ns / 1ps
 
 module ALU_ft (
     input              clk,
@@ -16,7 +16,7 @@ module ALU_ft (
     output reg         fault_detected_out
 );
 
-    
+    // ALU (TB forces u_alu.Result)
     wire [31:0] alu_res;
     wire alu_z, alu_c, alu_v, alu_n;
 
@@ -31,46 +31,45 @@ module ALU_ft (
         .Negative(alu_n)
     );
 
+    // Stage registers (TB-visible)
     reg [31:0] res_t1;
-    reg        stage3_en;
+    reg [31:0] res_t2;
 
-    // FSM states
-    parameter STAGE1 = 2'b00;
-    parameter STAGE2 = 2'b01;
-    parameter STAGE3 = 2'b10;
+    // FSM
+    localparam STAGE1 = 2'b00;
+    localparam STAGE2 = 2'b01;
+    localparam STAGE3 = 2'b10;
 
     reg [1:0] state;
 
-    // --------------------------------------------------
-    // FSM
-    // --------------------------------------------------
     always @(posedge clk or negedge rst) begin
         if (!rst) begin
             state              <= STAGE1;
-            res_t1             <= 32'b0;
-            stage3_en          <= 1'b0;
             fault_detected_out <= 1'b0;
-
-            Result   <= 32'b0;
-            Zero     <= 1'b0;
-            Carry    <= 1'b0;
-            OverFlow <= 1'b0;
-            Negative <= 1'b0;
+            res_t1             <= 32'b0;
+            res_t2             <= 32'b0;
+            Result             <= 32'b0;
+            Zero               <= 1'b0;
+            Carry              <= 1'b0;
+            OverFlow           <= 1'b0;
+            Negative           <= 1'b0;
         end
         else begin
             case (state)
 
-                // ---------------- STAGE 1 ----------------
+                // ---------- STAGE-1 ----------
                 STAGE1: begin
-                    res_t1    <= alu_res;   // store first computation
-                    stage3_en <= 1'b0;      // clear previous fault
-                    state     <= STAGE2;
+                    res_t1 <= alu_res;          // may be faulty
+                    fault_detected_out <= 1'b0;
+                    state <= STAGE2;
                 end
 
-                // ---------------- STAGE 2 ----------------
+                // ---------- STAGE-2 ----------
                 STAGE2: begin
-                    if (alu_res == res_t1) begin
-                        // No fault → accept result
+                    res_t2 <= alu_res;          // may be faulty or clean
+
+                    if (res_t2 == res_t1) begin
+                        // both executions match → accept
                         Result   <= alu_res;
                         Zero     <= alu_z;
                         Carry    <= alu_c;
@@ -79,27 +78,22 @@ module ALU_ft (
                         state    <= STAGE1;
                     end
                     else begin
-                        // Mismatch → enable stage-3
+                        // mismatch → fault → Stage-3
                         fault_detected_out <= 1'b1;
-                        stage3_en <= 1'b1;
                         state <= STAGE3;
                     end
                 end
 
-                // ---------------- STAGE 3 ----------------
+                // ---------- STAGE-3 ----------
                 STAGE3: begin
-                    if (stage3_en) begin
-                        // Recovery computation
-                        Result   <= alu_res;
-                        Zero     <= alu_z;
-                        Carry    <= alu_c;
-                        OverFlow <= alu_v;
-                        Negative <= alu_n;
-                    end
-                    state <= STAGE1; // return to idle
+                    // assumed clean recomputation
+                    Result   <= alu_res;
+                    Zero     <= alu_z;
+                    Carry    <= alu_c;
+                    OverFlow <= alu_v;
+                    Negative <= alu_n;
+                    state <= STAGE1;
                 end
-
-                default: state <= STAGE1;
 
             endcase
         end
