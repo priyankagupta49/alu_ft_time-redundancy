@@ -47,18 +47,23 @@ module tb_alu_time_redundancy;
         A = 32'hF5;
         B = 32'haa;
         ALUControl = 3'b010; // ADD 
-
-        // ---------------- STAGE-1 ----------------
+//#1 force dut.u_alu.Result = ~dut.u_alu.Result;
+       // ---------------- STAGE-1 ----------------
 @(posedge clk);
-//#2 force dut.u_alu.Result = ~dut.u_alu.Result;
+//#1 force dut.u_alu.Result = ~dut.u_alu.Result;
 #1 stage1_res = dut.res_t1;
 $display("Stage-1 Result = %0d", stage1_res);
 
+// REMOVE FAULT BEFORE STAGE-2
+release dut.u_alu.Result;
+
 // ---------------- STAGE-2 ----------------
+#1 force dut.u_alu.Result = ~dut.u_alu.Result;
 @(posedge clk);
-   #2 force dut.u_alu.Result = ~dut.u_alu.Result;
-#1 stage2_res = dut.u_alu.Result;
+
+#1 stage2_res = dut.res_t2;
 $display("Stage-2 Result = %0d", stage2_res);
+
 
 // ---------------- DECISION BEFORE STAGE-3 ----------------
 if (stage1_res != stage2_res) begin
