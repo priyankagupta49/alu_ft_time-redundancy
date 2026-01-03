@@ -55,7 +55,7 @@ module tb_alu_time_redundancy;
 $display("Stage-1 Result = %0d", stage1_res);
 
 // REMOVE FAULT BEFORE STAGE-2
-release dut.u_alu.Result;
+//release dut.u_alu.Result;
 
 // ---------------- STAGE-2 ----------------
 #1 force dut.u_alu.Result = ~dut.u_alu.Result;
@@ -64,7 +64,7 @@ release dut.u_alu.Result;
 #1 stage2_res = dut.res_t2;
 $display("Stage-2 Result = %0d", stage2_res);
 
-
+release dut.u_alu.Result;
 // ---------------- DECISION BEFORE STAGE-3 ----------------
 if (stage1_res != stage2_res) begin
     $display("Mismatch detected : Stage-3 enabled");
